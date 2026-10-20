@@ -320,7 +320,6 @@ async function loadGallery(){
     if(!r.ok) throw new Error(await r.text());
 
     const rows=await r.json();
-e
     if(!rows.length){
       g.textContent='Ainda não há fotografias publicadas.';
       return;
