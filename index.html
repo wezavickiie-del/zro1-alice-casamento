@@ -5,6 +5,28 @@ const SUPABASE_ANON_KEY='sb_publishable_AVu2-HrGR2Luyld1mEyTkw_j0CUo-jW';
 const BUCKET='fotos-casamento';
 const TABLE='fotos_casamento';
 let stream=null,blob=null;
+let facingMode='user';
+async function startCamera(){
+  try{
+    if(stream) stream.getTracks().forEach(t=>t.stop());
+
+    stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:facingMode}},
+      audio:false
+    });
+
+    $('video').srcObject=stream;
+    $('status').textContent=
+      facingMode==='user' ? 'Câmara frontal pronta!' : 'Câmara traseira pronta!';
+  }catch(e){
+    $('status').textContent='Não foi possível abrir a câmara.';
+  }
+}
+
+async function switchCamera(){
+  facingMode=facingMode==='user' ? 'environment' : 'user';
+  await startCamera();
+}
 const $=id=>document.getElementById(id);
 function configured(){return SUPABASE_URL.startsWith('https://')&&!SUPABASE_ANON_KEY.startsWith('COLOCA_')}
 function tab(name){document.querySelectorAll('.panel').forEach(x=>x.classList.toggle('active',x.id===name));if(name==='galeria')loadGallery()}
