@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#17120e">
+  <title>Zro1 & Alice · 23.10.2026</title>
+  <style>
+    :root{--gold:#d8b77a;--ink:#17120e}
+    *{box-sizing:border-box}
+    body{margin:0;background:#15110f;color:#f8f1e5;font-family:Georgia,serif;text-align:center}
+    header{padding:30px 16px;background:radial-gradient(circle at top,#493527,#17120e 70%);border-bottom:1px solid #806643}
+    .small{letter-spacing:3px;text-transform:uppercase;font:12px Arial;color:var(--gold)}
+    h1{font-size:44px;font-weight:400;margin:14px 0}
+    h2{font-weight:400}
+    main{max-width:600px;margin:auto;padding:20px}
+    button,select{border:1px solid var(--gold);background:#30251d;color:#fff4df;padding:13px 16px;border-radius:14px;font-size:16px;margin:5px;cursor:pointer}
+    button:disabled{opacity:.45}
+    button.primary{background:var(--gold);color:#20170f;font-weight:bold}
+    .tabs{display:flex;justify-content:center;flex-wrap:wrap}
+    .panel{display:none}
+    .panel.active{display:block}
+    .viewer{position:relative;width:100%;aspect-ratio:3/4;background:#070707;border:5px solid var(--gold);border-radius:20px;overflow:hidden;margin:16px auto;max-width:420px}
+    .viewer video,.viewer img{width:100%;height:100%;object-fit:cover}
+    .mirror{transform:scaleX(-1)}
+    .overlay{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:14px;font-size:26px;text-shadow:0 2px 5px #000}
+    .overlay .bottom{font-size:17px;color:#fff4d2;background:#1c140d99;border-radius:12px;padding:8px}
+    .note{font:14px/1.6 Arial;color:#d6c9b6}
+    .challenge{border:1px solid #806643;padding:22px;border-radius:16px;font-size:21px}
+    .gallery{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+    .gallery img{width:100%;aspect-ratio:3/4;object-fit:cover;border:2px solid var(--gold);border-radius:12px}
+    a{color:var(--gold)}
+    #status{min-height:25px;font:14px Arial}
+    footer{padding:30px;font:12px Arial;color:#bba98e}
+  </style>
+</head>
+<body>
+<header>
+  <div class="small">23 outubro 2026 · O nosso grande dia</div>
+  <h1>Zro1 <span style="color:var(--gold)">&</span> Alice</h1>
+  <p>Sorria! Estás no casamento do Zro1 e da Alice</p>
+  <div class="small">✦ Amor · Alegria · Memórias ✦</div>
+</header>
+
+<main>
+  <div class="tabs">
+    <button onclick="tab('camera')">📷 Câmara</button>
+    <button onclick="tab('desafios')">🎲 Desafios</button>
+    <button onclick="tab('galeria')">💛 Galeria</button>
+  </div>
+
+  <section id="camera" class="panel active">
+    <h2>BORAA LÁ ! Tira a tua FOTO 📷</h2>
+
+    <div>
+      <select id="frame" onchange="setFrame()">
+        <option value="sem">Sem moldura</option>
+        <option value="flores">🌸 Flores românticas</option>
+        <option value="coroas">👑 Reis da festa</option>
+        <option value="coracoes">💕 Corações</option>
+        <option value="brilho">✨ Glamour</option>
+        <option value="cerveja">🍻 Cerveja</option>
+      </select>
+
+      <select id="filter" onchange="setFilter()">
+        <option value="none">Natural</option>
+        <option value="sepia(.45) saturate(1.3)">Dourado</option>
+        <option value="grayscale(1)">Preto e branco</option>
+        <option value="contrast(1.2) saturate(1.3)">Vibrante</option>
+      </select>
+    </div>
+
+    <div class="viewer">
+      <video id="video" autoplay playsinline muted></video>
+      <div class="overlay">
+        <div id="decoration"></div>
+        <div class="bottom">Zro1 & Alice · 23.10.2026</div>
+      </div>
+    </div>
+
+    <button onclick="startCamera()">Abrir câmara</button>
+    <button onclick="switchCamera()">🔄 Virar câmara</button>
+    <button class="primary" onclick="capture()">📸 Tirar fotografia</button>
+
+    <p id="status" aria-live="polite"></p>
+    <div id="result"></div>
+
+    <p class="note">
+      Autoriza o acesso à câmara quando o telemóvel pedir.
+      A fotografia só é enviada depois de tocares em “Publicar na galeria”.
+    </p>
+  </section>
+
+  <section id="desafios" class="panel">
+    <h2>Desafio surpresa</h2>
+    <div class="challenge" id="challenge">Toca no botão para descobrir o teu desafio!</div>
+    <button class="primary" onclick="challenge()">Sortear desafio</button>
+    <p class="note">Faz a pose e regressa à Câmara para registar o momento.</p>
+  </section>
+
+  <section id="galeria" class="panel">
+    <h2>As nossas memórias</h2>
+    <button onclick="loadGallery()">Atualizar galeria</button>
+    <p class="note">Fotografias publicadas pelos convidados. Todos com o link podem vê-las.</p>
+    <div id="gallery" class="gallery"></div>
+  </section>
+</main>
+
+<footer>Feito com amor para a família e amigos · Zro1 & Alice</footer>
+<canvas id="canvas" style="display:none"></canvas>
+
+<script>
+const SUPABASE_URL='https://jidvoyrknvildbrclrpt.supabase.co';
+const SUPABASE_ANON_KEY='COLOCA_AQUI_A_TUA_PUBLISHABLE_KEY';
+const BUCKET='fotos-casamento';
+const TABLE='fotos_casamento';
+
+let stream=null, blob=null;
+let facingMode='user';
+
+const $=id=>document.getElementById(id);
+
+function configured(){
+  return SUPABASE_URL.startsWith('https://') &&
+         SUPABASE_ANON_KEY.startsWith('sb_publishable_');
+}
+
+function tab(name){
+  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+  $(name).classList.add('active');
+  if(name==='galeria') loadGallery();
+}
+
+const decorations={
+  sem:'',
+  flores:'🌸 ✨ 🌸',
+  coroas:'👑 ✨ 👑',
+  coracoes:'💕 💍 💕',
+  brilho:'✨ ✨ ✨',
+  cerveja:'🍻 🍺 🍻'
+};
+
+function setFrame(){
+  $('decoration').textContent=decorations[$('frame').value] || '';
+}
+
+function setFilter(){
+  $('video').style.filter=$('filter').value;
+}
+
+function setMirror(){
+  $('video').classList.toggle('mirror', facingMode==='user');
+}
+
+setFrame();
+
+async function startCamera(){
+  try{
+    if(stream) stream.getTracks().forEach(t=>t.stop());
+
+    stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:facingMode}},
+      audio:false
+    });
+
+    $('video').srcObject=stream;
+    setMirror();
+
+    $('status').textContent=
+      facingMode==='user' ? 'Câmara frontal pronta!' : 'Câmara traseira pronta!';
+  }catch(e){
+    $('status').textContent='Não foi possível abrir a câmara. Verifica a permissão do navegador.';
+  }
+}
+
+async function switchCamera(){
+  facingMode=facingMode==='user' ? 'environment' : 'user';
+  await startCamera();
+}
+
+function capture(){
+  const v=$('video');
+  if(!v.videoWidth){
+    $('status').textContent='Abre a câmara primeiro.';
+    return;
+  }
+
+  const c=$('canvas');
+  c.width=v.videoWidth;
+  c.height=v.videoHeight;
+  const ctx=c.getContext('2d');
+
+  ctx.save();
+  if(facingMode==='user'){
+    ctx.translate(c.width,0);
+    ctx.scale(-1,1);
+  }
+  ctx.filter=$('filter').value;
+  ctx.drawImage(v,0,0,c.width,c.height);
+  ctx.restore();
+  ctx.filter='none';
+
+  const deco=decorations[$('frame').value] || '';
+  if(deco){
+    ctx.font=`${Math.max(36,Math.round(c.width*0.07))}px Arial`;
+    ctx.textAlign='center';
+    ctx.fillStyle='white';
+    ctx.shadowColor='black';
+    ctx.shadowBlur=8;
+    ctx.fillText(deco,c.width/2,Math.round(c.height*0.10));
+  }
+
+  ctx.shadowBlur=0;
+  const bandH=Math.round(c.height*0.11);
+  ctx.fillStyle='rgba(20,14,10,.72)';
+  ctx.fillRect(Math.round(c.width*0.08),c.height-bandH-Math.round(c.height*0.04),Math.round(c.width*0.84),bandH);
+
+  ctx.font=`${Math.max(24,Math.round(c.width*0.037))}px Georgia`;
+  ctx.textAlign='center';
+  ctx.fillStyle='#fff4d2';
+  ctx.fillText('Zro1 & Alice · 23.10.2026',c.width/2,c.height-Math.round(c.height*0.075));
+
+  c.toBlob(b=>{
+    blob=b;
+    const url=URL.createObjectURL(b);
+    $('result').innerHTML=`
+      <div class="viewer">
+        <img src="${url}" alt="Fotografia capturada">
+      </div>
+      <p><a download="zro1-alice-${Date.now()}.jpg" href="${url}">⬇️ Guardar fotografia</a></p>
+      <button class="primary" onclick="upload()">💛 Publicar na galeria</button>
+    `;
+    $('status').textContent='Fotografia pronta!';
+  },'image/jpeg',0.92);
+}
+
+const challenges=[
+  'Tira uma selfie com os noivos!',
+  'Faz a tua pose mais elegante!',
+  'Fotografa o abraço mais apertado da festa!',
+  'Reúne três gerações numa fotografia!',
+  'Tira uma foto com alguém que acabaste de conhecer!',
+  'Faz uma pose de capa de revista!',
+  'Fotografa o brinde mais animado da noite!',
+  'Faz uma foto divertida com toda a mesa!'
+];
+
+function challenge(){
+  $('challenge').textContent=challenges[Math.floor(Math.random()*challenges.length)];
+}
+
+function headers(extra={}){
+  return {
+    'apikey':SUPABASE_ANON_KEY,
+    'Authorization':'Bearer '+SUPABASE_ANON_KEY,
+    ...extra
+  };
+}
+
+async function upload(){
+  if(!blob) return;
+  if(!configured()){
+    $('status').textContent='Falta configurar a ligação ao Supabase antes de publicar.';
+    return;
+  }
+
+  $('status').textContent='A publicar...';
+
+  try{
+    const name=`foto-${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;
+
+    const up=await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${encodeURIComponent(name)}`,{
+      method:'POST',
+      headers:headers({
+        'Content-Type':'image/jpeg',
+        'x-upsert':'false'
+      }),
+      body:blob
+    });
+
+    if(!up.ok){
+      throw new Error(await up.text());
+    }
+
+    const row=await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}`,{
+      method:'POST',
+      headers:headers({
+        'Content-Type':'application/json',
+        'Prefer':'return=minimal'
+      }),
+      body:JSON.stringify({nome_ficheiro:name})
+    });
+
+    if(!row.ok){
+      throw new Error(await row.text());
+    }
+
+    $('status').textContent='Foto publicada na galeria! 💛';
+    await loadGallery();
+  }catch(e){
+    $('status').textContent='Não foi possível publicar: '+e.message;
+  }
+}
+
+async function loadGallery(){
+  const g=$('gallery');
+  g.innerHTML='A carregar...';
+
+  if(!configured()){
+    g.textContent='Falta configurar a ligação ao Supabase.';
+    return;
+  }
+
+  try{
+    const r=await fetch(
+      `${SUPABASE_URL}/rest/v1/${TABLE}?select=nome_ficheiro,criado_em&order=criado_em.desc`,
+      {headers:headers()}
+    );
+
+    if(!r.ok) throw new Error(await r.text());
+
+    const rows=await r.json();
+
+    if(!rows.length){
+      g.textContent='Ainda não há fotografias publicadas.';
+      return;
+    }
+
+    g.innerHTML='';
+    for(const row of rows){
+      const img=document.createElement('img');
+      img.loading='lazy';
+      img.alt='Fotografia do casamento';
+      img.src=`${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(row.nome_ficheiro)}`;
+      g.appendChild(img);
+    }
+  }catch(e){
+    g.textContent='Não foi possível carregar a galeria: '+e.message;
+  }
+}
+</script>
+</body>
+</html>
